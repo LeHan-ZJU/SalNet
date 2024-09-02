@@ -8,39 +8,39 @@ import tensorflow as tf
 from rgb_lab import rgb_to_lab
 from ImageProcess import preprocess, preprocess_lab
 
-parser = argparse.ArgumentParser()   #argparse是Python标准库中推荐使用的编写命令行程序的工具
-parser.add_argument("--mode", default="", choices=["train", "test", "export"])   #选择训练模型
-parser.add_argument("--input_dir", default="",help="path to folder containing images")  #输入图像路径
+parser = argparse.ArgumentParser()  
+parser.add_argument("--mode", default="", choices=["train", "test", "export"])  
+parser.add_argument("--input_dir", default="",help="path to folder containing images")  
 parser.add_argument("--lab_colorization", action="store_true", help="split input image into brightness (A) and color (B)")
 parser.add_argument("--batch_size", type=int, default=1, help="number of images in batch")
 parser.add_argument("--scale_size", type=int, default=286, help="scale images to this size before cropping to 256x256")
 parser.add_argument("--flip", dest="flip", action="store_true", help="flip images horizontally")
-a = parser.parse_args()           #add default #add_argument:读入命令行参数，该调用有多个参数
+a = parser.parse_args()        
 
-CROP_SIZE = 256 #图像目标尺寸
-Examples = collections.namedtuple("Examples", "paths, inputs, targets, count, steps_per_epoch") #构造一个带字段名的元组
+CROP_SIZE = 256 
+Examples = collections.namedtuple("Examples", "paths, inputs, targets, count, steps_per_epoch") 
 
-def load_examples():  #读取图像
-    if a.input_dir is None or not os.path.exists(a.input_dir): #判断输入图像路径是否存在
+def load_examples(): 
+    if a.input_dir is None or not os.path.exists(a.input_dir):
         raise Exception("input_dir does not exist")
 
-    input_paths = glob.glob(os.path.join(a.input_dir, "*.jpg")) #默认输入图像格式为jpg格式
+    input_paths = glob.glob(os.path.join(a.input_dir, "*.jpg")) 
     decode = tf.image.decode_jpeg
     if len(input_paths) == 0:
-        input_paths = glob.glob(os.path.join(a.input_dir, "*.png")) #若输入路径中不存在紧迫感格式，则读取png格式
+        input_paths = glob.glob(os.path.join(a.input_dir, "*.png")) 
         decode = tf.image.decode_png
 
     if len(input_paths) == 0:
-        raise Exception("input_dir contains no image files") #若输入图像路径中不存在jpg和png格式的图像，则报错
+        raise Exception("input_dir contains no image files") 
 
-    def get_name(path):                  #获取名称
+    def get_name(path):               
         name, _ = os.path.splitext(os.path.basename(path))
         return name
 
     # if the image names are numbers, sort by the value rather than asciibetically
     # having sorted inputs means that the outputs are sorted in test mode
     if all(get_name(path).isdigit() for path in input_paths):
-        input_paths = sorted(input_paths, key=lambda path: int(get_name(path)))  #如果图像以数字命名，则对其进行排序
+        input_paths = sorted(input_paths, key=lambda path: int(get_name(path)))  
     else:
         input_paths = sorted(input_paths)
 
@@ -57,7 +57,7 @@ def load_examples():  #读取图像
 
         raw_input.set_shape([None, None, 3])
 
-        if a.lab_colorization:                    #判别并转换图像的颜色空间。调用的函数为ImageProcessing.py中定义的图像处理函数
+        if a.lab_colorization:                  
             # load color and brightness from image, no B image exists here
             lab = rgb_to_lab(raw_input)
             L_chan, a_chan, b_chan = preprocess_lab(lab)
@@ -69,11 +69,11 @@ def load_examples():  #读取图像
             a_images = preprocess(raw_input[:,:width//2,:])
             b_images = preprocess(raw_input[:,width//2:,:])
 
-    inputs, targets = [b_images, a_images]    #因为输入图像是成对拼接的，所以分割输入和Ground-truth
+    inputs, targets = [b_images, a_images]   
 
     # synchronize seed for image operations so that we do the same operations to both
     # input and output images
-    seed = random.randint(0, 2**31 - 1)  #同步图像操作的种子，以便我们对输入和输出图像执行相同的操作
+    seed = random.randint(0, 2**31 - 1) 
     def transform(image):
         r = image
         if a.flip:
@@ -84,22 +84,22 @@ def load_examples():  #读取图像
         r = tf.image.resize_images(r, [a.scale_size, a.scale_size], method=tf.image.ResizeMethod.AREA)
 
         offset = tf.cast(tf.floor(tf.random_uniform([2], 0, a.scale_size - CROP_SIZE + 1, seed=seed)), dtype=tf.int32)
-        if a.scale_size > CROP_SIZE:                                   #判断并调整图像尺寸到256*256
+        if a.scale_size > CROP_SIZE:                                 
             r = tf.image.crop_to_bounding_box(r, offset[0], offset[1], CROP_SIZE, CROP_SIZE)
         elif a.scale_size < CROP_SIZE:
             raise Exception("scale size cannot be less than crop size")
         return r
 
     with tf.name_scope("input_images"):
-        input_images = transform(inputs)             #转化输入图像尺寸
+        input_images = transform(inputs)           
 
     with tf.name_scope("target_images"):
-        target_images = transform(targets)            #转化Ground-truth尺寸
+        target_images = transform(targets)          
 
     paths_batch, inputs_batch, targets_batch = tf.train.batch([paths, input_images, target_images], batch_size=a.batch_size)
     steps_per_epoch = int(math.ceil(len(input_paths) / a.batch_size))
 
-    return Examples(      #返回图像加载结果
+    return Examples(    
         paths=paths_batch,
         inputs=inputs_batch,
         targets=targets_batch,
