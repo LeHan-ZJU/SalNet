@@ -1,5 +1,5 @@
 # SalNet
-# Convolutional Edge Constraint-Based U-Net for Salient Object Detection
+
 Tensorflow implementation of SalNet.
 
 
