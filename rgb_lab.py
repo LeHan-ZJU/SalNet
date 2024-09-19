@@ -82,7 +82,7 @@ def lab_to_rgb(lab):
 
         with tf.name_scope("xyz_to_srgb"):
             xyz_to_rgb = tf.constant([
-                #     r           g          b
+                #  r g b
                 [ 3.2404542, -0.9692660,  0.0556434], # x
                 [-1.5371385,  1.8760108, -0.2040259], # y
                 [-0.4985314,  0.0415560,  1.0572252], # z
