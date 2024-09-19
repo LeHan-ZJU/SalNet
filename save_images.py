@@ -26,4 +26,5 @@ def save_images(fetches, step=None):
             with open(out_path, "wb") as f:
                 f.write(contents)
         filesets.append(fileset)
+        
     return filesets
